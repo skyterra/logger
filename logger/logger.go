@@ -18,7 +18,7 @@ import (
 var (
 	marsLog      = log.New(os.Stdout, "", log.LstdFlags|log.Lmicroseconds)
 	marsLogLevel = DEBUG
-	projectName  = "mars"
+	projectName  = "st-logger"
 	maxHeader    = 128
 )
 
@@ -40,6 +40,10 @@ var LogLevelStr = []string{
 }
 
 const calldepth = 3
+
+func SetProjectName(name string) {
+	projectName = name
+}
 
 // 设置日志等级，默认为 DEBUG
 func SetLogLevel(level LogLevel) {
@@ -104,9 +108,11 @@ func formatHeader(level LogLevel, data string) string {
 		line = 0
 	}
 
-	i := strings.Index(file, projectName)
-	if i != -1 {
-		file = file[i:]
+	if projectName != "" {
+		i := strings.Index(file, projectName)
+		if i != -1 {
+			file = file[i-1:]
+		}
 	}
 
 	header := strings.Builder{}
@@ -115,7 +121,6 @@ func formatHeader(level LogLevel, data string) string {
 	// 过早获取时间戳，会导致与log写入间隔拉长，可能会出现log不按时间戳顺序显示（毫秒级）
 	//header.WriteString(fmt.Sprintf("%s.%06d", time.Now().Format("2006-01-02 15:04:05"), time.Now().Nanosecond()/1e3))
 
-	header.WriteString(" /")
 	header.WriteString(file)
 	header.WriteString(":")
 	header.WriteString(strconv.Itoa(line))
