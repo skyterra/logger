@@ -24,11 +24,20 @@ var _ = Describe("Logger", func() {
 				logger.Warn("this is warn", logger.WARN)
 				logger.Warnf("this is warn, level:%d", logger.WARN)
 
-				logger.Error("this is error", logger.ERROR)
-				logger.Errorf("this is error, level:%d", logger.ERROR)
+				//logger.Error("this is error", logger.ERROR)
+				//logger.Errorf("this is error, level:%d", logger.ERROR)
 
 				logger.Infof("/api/ws_main/login. timeSpent:%d", 10)
 			}
+		})
+	})
+
+	Context("Header field", func() {
+		It("should be succeed", func() {
+			logger.ShowHeader(logger.HeaderLevel, true)
+			logger.ShowHeader(logger.HeaderPath, false)
+			logger.Debug("hello world")
+			logger.Info("hello world info")
 		})
 	})
 
