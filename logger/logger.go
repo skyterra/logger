@@ -20,6 +20,10 @@ var (
 	marsLogLevel = DEBUG
 	projectName  = "st-logger"
 	maxHeader    = 128
+	headerField  = []bool{
+		true, // file
+		true, // level
+	}
 )
 
 type LogLevel int
@@ -30,6 +34,13 @@ const (
 	INFO
 	WARN
 	ERROR
+)
+
+type HeaderField int
+
+const (
+	HeaderPath HeaderField = iota
+	HeaderLevel
 )
 
 var LogLevelStr = []string{
@@ -43,6 +54,10 @@ const calldepth = 3
 
 func SetProjectName(name string) {
 	projectName = name
+}
+
+func ShowHeader(field HeaderField, show bool) {
+	headerField[field] = show
 }
 
 // 设置日志等级，默认为 DEBUG
@@ -121,12 +136,18 @@ func formatHeader(level LogLevel, data string) string {
 	// 过早获取时间戳，会导致与log写入间隔拉长，可能会出现log不按时间戳顺序显示（毫秒级）
 	//header.WriteString(fmt.Sprintf("%s.%06d", time.Now().Format("2006-01-02 15:04:05"), time.Now().Nanosecond()/1e3))
 
-	header.WriteString(file)
-	header.WriteString(":")
-	header.WriteString(strconv.Itoa(line))
-	header.WriteString(" ")
-	header.WriteString(LogLevelStr[level])
-	header.WriteString(" ")
+	if headerField[HeaderPath] {
+		header.WriteString(file)
+		header.WriteString(":")
+		header.WriteString(strconv.Itoa(line))
+		header.WriteString(" ")
+	}
+
+	if headerField[HeaderLevel] {
+		header.WriteString(LogLevelStr[level])
+		header.WriteString(" ")
+	}
+
 	header.WriteString(data)
 	return header.String()
 }
