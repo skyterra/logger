@@ -6,6 +6,7 @@ import (
 	"time"
 
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 	"github.com/skyterra/st-logger/logger"
 )
 
@@ -62,4 +63,14 @@ var _ = Describe("Logger", func() {
 			time.Sleep(10 * time.Second)
 		})
 	})
+
+	Measure("ttt", func(b Benchmarker) {
+		runtime := b.Time("runtime", func() {
+			logger.Debug("hello world...")
+		})
+
+		Ω(runtime.Seconds()).Should(BeNumerically("<", 0.2), "SomethingHard() shouldn't take too long.")
+
+		b.RecordValue("disk usage (in MB)", HowMuchDiskSpaceDidYouUse())
+	}, 10)
 })
