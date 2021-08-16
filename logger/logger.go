@@ -7,115 +7,119 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 )
 
 /*
  * 日志输出管理：按照日志等级进行输出，等级越高，输出的日志越少
  * 日志时间：精确到毫秒
- * 输出格式：yyyy/mm/dd hh:MM:ss.microsecond xxx/../xx.go:86: [DEBUG] your log content.
+ * 输出格式：yyyy/mm/dd hh:MM:ss.xxx xxx/../xx.go:86: [debug] your log content.
  */
 
 var (
-	marsLog      = log.New(os.Stdout, "", log.LstdFlags|log.Lmicroseconds)
-	marsLogLevel = DEBUG
-	projectName  = "st-logger"
-	maxHeader    = 128
-	headerField  = []bool{
-		true, // file
-		true, // level
-	}
+	lanhuLog    = log.New(os.Stdout, "", log.Lmsgprefix)
+	logLevel    = debug
+	srcFolder   = ""
+	projectName = "UnknownProject"
 )
-
-type LogLevel int
 
 // 日志等级定义
 const (
-	DEBUG LogLevel = iota
-	INFO
-	WARN
-	ERROR
+	debug = iota
+	info
+	warn
+	error
 )
 
-type HeaderField int
-
-const (
-	HeaderPath HeaderField = iota
-	HeaderLevel
-)
-
-var LogLevelStr = []string{
-	DEBUG: "[DEBUG]",
-	INFO:  "[INFO]",
-	WARN:  "[WARN]",
-	ERROR: "[ERROR]",
+var levelName = []string{
+	debug: "DEBUG",
+	info:  "INFO",
+	warn:  "WARN",
+	error: "ERROR",
 }
 
-const calldepth = 3
+const (
+	calldepth = 3   // 错误日志堆栈深度
+	maxHeader = 128 // 日志最大长度
+)
+
+// 设置日志等级 "debug", "info", "warn", "error"
+func SetLevel(level string) {
+	level = strings.ToUpper(level)
+
+	switch level {
+	case levelName[debug]:
+		logLevel = debug
+	case levelName[info]:
+		logLevel = info
+	case levelName[warn]:
+		logLevel = warn
+	case levelName[error]:
+		logLevel = error
+	default:
+		logLevel = debug
+	}
+}
 
 func SetProjectName(name string) {
 	projectName = name
 }
 
-func ShowHeader(field HeaderField, show bool) {
-	headerField[field] = show
-}
-
-// 设置日志等级，默认为 DEBUG
-func SetLogLevel(level LogLevel) {
-	marsLogLevel = level
+func SetSrcFolder(folderName string) {
+	srcFolder = folderName
 }
 
 func Debug(v ...interface{}) {
-	output(DEBUG, v...)
+	output(debug, v...)
 }
 
 func Debugf(format string, v ...interface{}) {
-	outputf(DEBUG, format, v...)
+	outputf(debug, format, v...)
 }
 
 func Info(v ...interface{}) {
-	output(INFO, v...)
+	output(info, v...)
 }
 
 func Infof(format string, v ...interface{}) {
-	outputf(INFO, format, v...)
+	outputf(info, format, v...)
 }
 
 func Warn(v ...interface{}) {
-	output(WARN, v...)
+	output(warn, v...)
 }
 
 func Warnf(format string, v ...interface{}) {
-	outputf(WARN, format, v...)
+	outputf(warn, format, v...)
 }
 
 func Error(v ...interface{}) {
 	var buf [2 << 10]byte
 	v = append(v, string(buf[:runtime.Stack(buf[:], false)]))
-	output(ERROR, v...)
+	output(error, v...)
 }
 
 func Errorf(format string, v ...interface{}) {
 	var buf [2 << 10]byte
 	v = append(v, string(buf[:runtime.Stack(buf[:], false)]))
-	outputf(ERROR, format, v...)
+	outputf(error, format, v...)
 }
 
 // 致命错误日志，会调用os.Exit(1)退出程序
 func Fatal(v ...interface{}) {
-	marsLog.Fatal(v...)
+	lanhuLog.Fatal(v...)
 }
 
 // 致命错误日志，会调用os.Exit(1)退出程序
 func Fatalf(format string, v ...interface{}) {
-	marsLog.Fatalf(format, v...)
+	lanhuLog.Fatalf(format, v...)
 }
 
-func checkLevel(level LogLevel) bool {
-	return level >= marsLogLevel
+func checkLevel(level int) bool {
+	return level >= logLevel
 }
 
-func formatHeader(level LogLevel, data string) string {
+func formatHeader(level int, data string) string {
 	// 格式化代码文件路径
 	_, file, line, ok := runtime.Caller(calldepth)
 	if !ok {
@@ -123,43 +127,29 @@ func formatHeader(level LogLevel, data string) string {
 		line = 0
 	}
 
-	if projectName != "" {
-		i := strings.Index(file, projectName)
-		if i != -1 {
-			file = file[i-1:]
-		}
+	i := strings.Index(file, srcFolder)
+	if i != -1 {
+		file = file[i:]
 	}
 
 	header := strings.Builder{}
 	header.Grow(maxHeader)
 
 	// 过早获取时间戳，会导致与log写入间隔拉长，可能会出现log不按时间戳顺序显示（毫秒级）
-	//header.WriteString(fmt.Sprintf("%s.%06d", time.Now().Format("2006-01-02 15:04:05"), time.Now().Nanosecond()/1e3))
-
-	if headerField[HeaderPath] {
-		header.WriteString(file)
-		header.WriteString(":")
-		header.WriteString(strconv.Itoa(line))
-		header.WriteString(" ")
-	}
-
-	if headerField[HeaderLevel] {
-		header.WriteString(LogLevelStr[level])
-		header.WriteString(" ")
-	}
-
+	header.WriteString(fmt.Sprintf("%s.%03d", time.Now().Format("2006/01/02-15:04:05"), time.Now().Nanosecond()/1e6))
+	header.WriteString(fmt.Sprintf(" %s %s:%s [%s]$ ", projectName, file, strconv.Itoa(line), levelName[level]))
 	header.WriteString(data)
 	return header.String()
 }
 
-func output(level LogLevel, v ...interface{}) {
+func output(level int, v ...interface{}) {
 	if checkLevel(level) {
-		marsLog.Output(calldepth, formatHeader(level, fmt.Sprintln(v...)))
+		lanhuLog.Output(calldepth, formatHeader(level, fmt.Sprintln(v...)))
 	}
 }
 
-func outputf(level LogLevel, format string, v ...interface{}) {
+func outputf(level int, format string, v ...interface{}) {
 	if checkLevel(level) {
-		marsLog.Output(calldepth, formatHeader(level, fmt.Sprintf(format, v...)))
+		lanhuLog.Output(calldepth, formatHeader(level, fmt.Sprintf(format, v...)))
 	}
 }
