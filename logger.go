@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -17,11 +18,13 @@ import (
  */
 
 var (
-	lanhuLog    = log.New(os.Stdout, "", log.Lmsgprefix)
+	ins         = log.New(os.Stdout, "", log.Lmsgprefix)
 	logLevel    = debug
 	srcFolder   = ""
-	projectName = "UnknownProject"
+	projectName = "♫"
 )
+
+const RequestID = "sk-request-id"
 
 // 日志等级定义
 const (
@@ -42,6 +45,12 @@ const (
 	calldepth = 3   // 错误日志堆栈深度
 	maxHeader = 128 // 日志最大长度
 )
+
+func Init(level string, srcFolder string, projectName string) {
+	SetLevel(level)
+	SetSrcFolder(srcFolder)
+	SetProjectName(projectName)
+}
 
 // 设置日志等级 "debug", "info", "warn", "error"
 func SetLevel(level string) {
@@ -69,57 +78,62 @@ func SetSrcFolder(folderName string) {
 	srcFolder = folderName
 }
 
-func Debug(v ...interface{}) {
-	output(debug, v...)
+func Debug(ctx context.Context, v ...interface{}) {
+	output(ctx, debug, v...)
 }
 
-func Debugf(format string, v ...interface{}) {
-	outputf(debug, format, v...)
+func Debugf(ctx context.Context, format string, v ...interface{}) {
+	outputf(ctx, debug, format, v...)
 }
 
-func Info(v ...interface{}) {
-	output(info, v...)
+func Info(ctx context.Context, v ...interface{}) {
+	output(ctx, info, v...)
 }
 
-func Infof(format string, v ...interface{}) {
-	outputf(info, format, v...)
+func Infof(ctx context.Context, format string, v ...interface{}) {
+	outputf(ctx, info, format, v...)
 }
 
-func Warn(v ...interface{}) {
-	output(warn, v...)
+func Warn(ctx context.Context, v ...interface{}) {
+	output(ctx, warn, v...)
 }
 
-func Warnf(format string, v ...interface{}) {
-	outputf(warn, format, v...)
+func Warnf(ctx context.Context, format string, v ...interface{}) {
+	outputf(ctx, warn, format, v...)
 }
 
-func Error(v ...interface{}) {
+func Error(ctx context.Context, v ...interface{}) {
 	var buf [2 << 10]byte
 	v = append(v, string(buf[:runtime.Stack(buf[:], false)]))
-	output(error, v...)
+	output(ctx, error, v...)
 }
 
-func Errorf(format string, v ...interface{}) {
+func Errorf(ctx context.Context, format string, v ...interface{}) {
 	var buf [2 << 10]byte
 	v = append(v, string(buf[:runtime.Stack(buf[:], false)]))
-	outputf(error, format, v...)
+	outputf(ctx, error, format, v...)
 }
 
 // 致命错误日志，会调用os.Exit(1)退出程序
 func Fatal(v ...interface{}) {
-	lanhuLog.Fatal(v...)
+	ins.Fatal(v...)
 }
 
 // 致命错误日志，会调用os.Exit(1)退出程序
 func Fatalf(format string, v ...interface{}) {
-	lanhuLog.Fatalf(format, v...)
+	ins.Fatalf(format, v...)
 }
 
 func checkLevel(level int) bool {
 	return level >= logLevel
 }
 
-func formatHeader(level int, data string) string {
+func formatHeader(ctx context.Context, level int, data string) string {
+	requestID, _ := ctx.Value(RequestID).(string)
+	if requestID != "" {
+		requestID = fmt.Sprintf(" [%s]", requestID)
+	}
+
 	// 格式化代码文件路径
 	_, file, line, ok := runtime.Caller(calldepth)
 	if !ok {
@@ -137,19 +151,19 @@ func formatHeader(level int, data string) string {
 
 	// 过早获取时间戳，会导致与log写入间隔拉长，可能会出现log不按时间戳顺序显示（毫秒级）
 	header.WriteString(fmt.Sprintf("%s.%03d", time.Now().Format("2006/01/02-15:04:05"), time.Now().Nanosecond()/1e6))
-	header.WriteString(fmt.Sprintf(" %s %s:%s [%s]$ ", projectName, file, strconv.Itoa(line), levelName[level]))
+	header.WriteString(fmt.Sprintf(" %s %s:%s [%s]%s$ ", projectName, file, strconv.Itoa(line), levelName[level], requestID))
 	header.WriteString(data)
 	return header.String()
 }
 
-func output(level int, v ...interface{}) {
+func output(ctx context.Context, level int, v ...interface{}) {
 	if checkLevel(level) {
-		lanhuLog.Output(calldepth, formatHeader(level, fmt.Sprintln(v...)))
+		ins.Output(calldepth, formatHeader(ctx, level, fmt.Sprintln(v...)))
 	}
 }
 
-func outputf(level int, format string, v ...interface{}) {
+func outputf(ctx context.Context, level int, format string, v ...interface{}) {
 	if checkLevel(level) {
-		lanhuLog.Output(calldepth, formatHeader(level, fmt.Sprintf(format, v...)))
+		ins.Output(calldepth, formatHeader(ctx, level, fmt.Sprintf(format, v...)))
 	}
 }

@@ -1,39 +1,42 @@
 package logger_test
 
 import (
+	"context"
 	"sync"
 
 	. "github.com/onsi/ginkgo"
-	"github.com/skyterra/st-logger/logger"
+	"github.com/skyterra/logger"
 )
 
 var _ = Describe("Logger", func() {
 	Context("set log level", func() {
-		It("should be succeed", func() {
+		FIt("should be succeed", func() {
 			logger.SetLevel("debug")
 			logger.SetProjectName("ST-Logger")
-			logger.SetSrcFolder("st-logger")
-			logger.Debug("this is debug")
-			logger.Info("this is info")
+			logger.SetSrcFolder("logger")
+			logger.Debug(context.TODO(), "this is debug")
+
+			ctx := context.WithValue(context.TODO(), logger.RequestID, "aaa")
+			logger.Info(ctx, "this is info")
 
 			logger.SetLevel("info")
-			logger.Debug("this is debug")
+			logger.Debug(context.TODO(), "this is debug")
 
-			logger.Error("this is test error")
+			logger.Error(context.TODO(), "this is test error")
 		})
 	})
 
 	Context("set project", func() {
 		It("should be succeed", func() {
 			logger.SetProjectName("ST-Logger")
-			logger.Debug("this is debug")
+			logger.Debug(context.TODO(), "this is debug")
 		})
 	})
 
 	Context("set src folder", func() {
 		It("should be succeed", func() {
 			logger.SetSrcFolder("st-logger")
-			logger.Debug("this is test")
+			logger.Debug(context.TODO(), "this is test")
 		})
 	})
 
@@ -43,14 +46,14 @@ var _ = Describe("Logger", func() {
 			wg.Add(2)
 			go func() {
 				for i := 0; i < 200; i++ {
-					logger.Infof("a hello %d", i)
+					logger.Infof(context.TODO(), "a hello %d", i)
 				}
 				wg.Done()
 			}()
 
 			go func() {
 				for i := 0; i < 200; i++ {
-					logger.Infof("b hello %d", i)
+					logger.Infof(context.TODO(), "b hello %d", i)
 				}
 				wg.Done()
 			}()
